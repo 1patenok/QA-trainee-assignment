@@ -3,14 +3,20 @@
 import time
 from typing import Any
 
+import allure
 import pytest
-
 from api.auth import AuthApi
-from api.client import ApiClient
+from api.client import BASE_URL, ApiClient
 from api.items import ItemsApi
 from api.statistics import StatisticsApi
 
 DEFAULT_PASSWORD = "strong-password"
+
+
+@pytest.fixture(autouse=True)
+def _allure_environment() -> None:
+    """Пишет окружение в Allure (base URL стенда)."""
+    allure.dynamic.parameter("base_url", BASE_URL)
 
 
 @pytest.fixture

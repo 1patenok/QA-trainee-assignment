@@ -1,7 +1,11 @@
 """Базовый HTTP-клиент к стенду qa-internship.avito.com."""
 
-from typing import Any, Dict, Optional
+import json
+from typing import Any, Optional
+
+import allure
 import requests
+
 BASE_URL = "https://qa-internship.avito.com"
 
 
@@ -29,12 +33,16 @@ class ApiClient:
         method: str,
         path: str,
         *,
-        json: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        json: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
         **kwargs: Any,
     ) -> requests.Response:
         url = f"{self.base_url}{path}"
-        return self.session.request(method, url, json=json, headers=headers, **kwargs)
+        with allure.step(f"{method.upper()} {path}"):
+            self._attach_request(method, url, json, headers)
+            response = self.session.request(method, url, json=json, headers=headers, **kwargs)
+            self._attach_response(response)
+            return response
 
     def get(self, path: str, **kwargs: Any) -> requests.Response:
         return self.request("GET", path, **kwargs)
@@ -44,3 +52,43 @@ class ApiClient:
 
     def delete(self, path: str, **kwargs: Any) -> requests.Response:
         return self.request("DELETE", path, **kwargs)
+
+    @staticmethod
+    def _attach_request(
+        method: str,
+        url: str,
+        body: Optional[dict[str, Any]],
+        headers: Optional[dict[str, str]],
+    ) -> None:
+        payload = {
+            "method": method.upper(),
+            "url": url,
+            "headers": headers or {},
+            "body": body,
+        }
+        allure.attach(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            name="request",
+            attachment_type=allure.attachment_type.JSON,
+        )
+
+    @staticmethod
+    def _attach_response(response: requests.Response) -> None:
+        allure.attach(
+            str(response.status_code),
+            name="status_code",
+            attachment_type=allure.attachment_type.TEXT,
+        )
+        try:
+            body: Any = response.json()
+            text = json.dumps(body, ensure_ascii=False, indent=2)
+            attachment_type = allure.attachment_type.JSON
+        except ValueError:
+            text = response.text
+            attachment_type = allure.attachment_type.TEXT
+
+        allure.attach(
+            text,
+            name="response_body",
+            attachment_type=attachment_type,
+        )
