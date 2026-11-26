@@ -1,14 +1,16 @@
-"""Автотесты объявлений. TC-ITEM-01 … TC-ITEM-04."""
+"""Автотесты объявлений. TC-ITEM-01 … TC-ITEM-04, TC-ITEM-16."""
 
 from typing import Any
 
 import allure
 from api.items import ItemsApi
+from api.statistics import StatisticsApi
 
 from tests.helpers import extract_item_id
 
 DEFAULT_STATS = {"likes": 1, "viewCount": 2, "contacts": 3}
 MISSING_ITEM_ID = "00000000-0000-0000-0000-000000000000"
+POSITIVE_STATS = {"likes": 4, "viewCount": 5, "contacts": 6}
 
 pytestmark = [allure.epic("API"), allure.feature("Items")]
 
@@ -103,3 +105,28 @@ def test_tc_item_04_get_nonexistent_item(
     body = response.json()
     message = str(body.get("result", {}).get("message", "")) + str(body)
     assert "not found" in message.lower()
+
+
+def test_tc_item_16_create_nonzero_stats_and_check_statistic(
+    items_api: ItemsApi,
+    statistics_api: StatisticsApi,
+    authorized_user: dict[str, Any],
+) -> None:
+    """TC-ITEM-16 - Создание с ненулевыми statistics и проверка statistic."""
+    create_response = items_api.create(
+        seller_id=authorized_user["id"],
+        name="autotest nonzero stats",
+        price=50,
+        statistics=POSITIVE_STATS,
+    )
+    assert create_response.status_code == 200
+    item_id = extract_item_id(create_response)
+
+    response = statistics_api.get_v1(item_id)
+    assert response.status_code == 200
+    stats = response.json()[0]
+    assert stats["likes"] == POSITIVE_STATS["likes"]
+    assert stats["viewCount"] == POSITIVE_STATS["viewCount"]
+    assert stats["contacts"] == POSITIVE_STATS["contacts"]
+
+    items_api.delete(item_id)

@@ -1,4 +1,4 @@
-"""Автотесты удаления. TC-DEL-01, TC-DEL-02."""
+"""Автотесты удаления. TC-DEL-01, TC-DEL-02, TC-DEL-04."""
 
 from typing import Any
 
@@ -54,3 +54,26 @@ def test_tc_del_02_get_after_delete(
     body = response.json()
     message = str(body.get("result", {}).get("message", "")) + str(body)
     assert "not found" in message.lower()
+
+
+def test_tc_del_04_seller_list_after_delete(
+    items_api: ItemsApi,
+    authorized_user: dict[str, Any],
+) -> None:
+    """TC-DEL-04 - Список продавца после удаления объявления."""
+    create_response = items_api.create(
+        seller_id=authorized_user["id"],
+        name="autotest list after delete",
+        price=500,
+        statistics=DEFAULT_STATS,
+    )
+    assert create_response.status_code == 200
+    item_id = extract_item_id(create_response)
+
+    delete_response = items_api.delete(item_id)
+    assert delete_response.status_code == 200
+
+    response = items_api.get_by_seller(authorized_user["id"])
+    assert response.status_code == 200
+    ids = [item["id"] for item in response.json()]
+    assert item_id not in ids

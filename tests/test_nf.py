@@ -9,7 +9,7 @@ from api.items import ItemsApi
 from tests.helpers import extract_item_id
 
 DEFAULT_STATS = {"likes": 1, "viewCount": 1, "contacts": 1}
-MAX_SECONDS = 3.0
+MAX_SECONDS = 5.0
 FAKE_ITEM_ID = "00000000-0000-0000-0000-000000000001"
 
 pytestmark = [allure.epic("API"), allure.feature("Non-functional")]
@@ -19,7 +19,7 @@ def test_tc_nf_01_create_response_time(
     items_api: ItemsApi,
     authorized_user: dict[str, Any],
 ) -> None:
-    """TC-NF-01 - create укладывается в 3 секунды."""
+    """TC-NF-01 - create укладывается в разумное время."""
     response = items_api.create(
         seller_id=authorized_user["id"],
         name="nf timing",

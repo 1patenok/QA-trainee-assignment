@@ -1,14 +1,18 @@
 """Негативы с известными дефектами стенда.
 
-Ожидаем корректное поведение API. Если стенд врёт — тест падает
+Ожидаем корректное поведение API. Если стенд врёт - тест падает
 с сообщением и ссылкой на BUG-XXX в BUGS.md (как в ТЗ).
 """
 
+import time
 from typing import Any
 
 import allure
+import pytest
 from api.auth import AuthApi
+from api.client import ApiClient
 from api.items import ItemsApi
+from api.statistics import StatisticsApi
 
 from tests.helpers import extract_item_id
 
@@ -207,3 +211,103 @@ def test_tc_auth_03_empty_password(
         f"BUG-037: при валидном JSON нельзя отвечать 'invalid JSON body': {response.text}. "
         "См. BUGS.md"
     )
+
+
+def test_tc_del_05_statistic_after_delete(
+    items_api: ItemsApi,
+    statistics_api: StatisticsApi,
+    authorized_user: dict[str, Any],
+) -> None:
+    """TC-DEL-05 - статистика после DELETE не должна быть живой. См. BUG-038."""
+    create_response = items_api.create(
+        seller_id=authorized_user["id"],
+        name="bug stats after delete",
+        price=100,
+        statistics={"likes": 3, "viewCount": 5, "contacts": 1},
+    )
+    assert create_response.status_code == 200
+    item_id = extract_item_id(create_response)
+
+    assert statistics_api.get_v1(item_id).status_code == 200
+    assert items_api.delete(item_id).status_code == 200
+
+    for version, response in (
+        ("v1", statistics_api.get_v1(item_id)),
+        ("v2", statistics_api.get_v2(item_id)),
+    ):
+        assert response.status_code >= 400, (
+            f"BUG-038: после DELETE statistic {version} не должна быть 200, "
+            f"получили {response.status_code}, тело: {response.text}. См. BUGS.md"
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "statistics"),
+    [
+        ("likes", {"likes": 0, "viewCount": 5, "contacts": 6}),
+        ("viewCount", {"likes": 4, "viewCount": 0, "contacts": 6}),
+        ("contacts", {"likes": 4, "viewCount": 5, "contacts": 0}),
+    ],
+)
+def test_tc_item_zero_statistics_message(
+    items_api: ItemsApi,
+    authorized_user: dict[str, Any],
+    field: str,
+    statistics: dict[str, int],
+) -> None:
+    """TC-ITEM-17…19 - при 0 в statistics не должно быть 'обязательно'. См. BUG-040."""
+    response = items_api.create(
+        seller_id=authorized_user["id"],
+        name=f"bug zero {field}",
+        price=50,
+        statistics=statistics,
+    )
+    try:
+        if response.status_code == 200:
+            return
+        assert response.status_code == 400, (
+            f"BUG-040: для {field}=0 ожидали 200 или 400, получили {response.status_code}. "
+            "См. BUGS.md"
+        )
+        assert "обязательно" not in response.text.lower(), (
+            f"BUG-040: при {field}=0 нельзя отвечать 'обязательно': {response.text}. См. BUGS.md"
+        )
+    finally:
+        if response.status_code == 200:
+            items_api.delete(extract_item_id(response))
+
+
+def test_tc_access_10_delete_foreign_item(
+    items_api: ItemsApi,
+    authorized_user: dict[str, Any],
+) -> None:
+    """TC-ACCESS-10 - DELETE чужого объявления другим пользователем. См. BUG-039."""
+    create_a = items_api.create(
+        seller_id=authorized_user["id"],
+        name="bug foreign owner A",
+        price=100,
+        statistics=DEFAULT_STATS,
+    )
+    assert create_a.status_code == 200
+    item_a = extract_item_id(create_a)
+
+    client_b = ApiClient()
+    auth_b = AuthApi(client_b)
+    items_b = ItemsApi(client_b)
+    username_b = f"student_foreign_{int(time.time() * 1000)}"
+    reg_b = auth_b.register(username_b, PASSWORD)
+    assert reg_b.status_code == 201
+    token_b = auth_b.autorize(username_b, PASSWORD).json()["accessToken"]
+    client_b.set_token(token_b)
+
+    delete_by_b = items_b.delete(item_a)
+    assert delete_by_b.status_code != 200, (
+        f"BUG-039: чужой DELETE не должен быть 200, получили {delete_by_b.status_code}. См. BUGS.md"
+    )
+
+    still_there = items_api.get_by_id(item_a)
+    assert still_there.status_code == 200, (
+        f"BUG-039: объявление A должно остаться у владельца, получили "
+        f"{still_there.status_code}. См. BUGS.md"
+    )
+    items_api.delete(item_a)
