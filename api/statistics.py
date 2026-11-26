@@ -1,6 +1,7 @@
 """Ручки статистики объявления."""
 
 import requests
+
 from api.client import ApiClient
 
 

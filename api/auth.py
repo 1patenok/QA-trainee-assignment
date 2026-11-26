@@ -1,7 +1,9 @@
 """Ручки регистрации и авторизации."""
 
 from typing import Any
+
 import requests
+
 from api.client import ApiClient
 
 
