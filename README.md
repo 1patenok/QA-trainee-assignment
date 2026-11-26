@@ -56,6 +56,8 @@
 python3 --version
 ```
 
+На Windows: `python --version`
+
 Если команды нет, установите Python с [официального сайта](https://www.python.org/downloads/). На Windows при установке включите опцию **Add python.exe to PATH**.
 
 3. Перейдите в корневую директорию проекта (туда, где лежит `requirements.txt`):
@@ -70,21 +72,30 @@ cd /путь/до/проекта
 python3 -m venv venv
 ```
 
-5. Установите зависимости **через pip из venv**:
+На Windows: `python -m venv venv`
+
+5. Активируйте окружение:
 
 ```bash
-./venv/bin/pip install -r requirements.txt
+source venv/bin/activate
 ```
 
-На Windows: `venv\Scripts\pip install -r requirements.txt`
+На Windows (cmd): `venv\Scripts\activate.bat`  
+На Windows (PowerShell): `venv\Scripts\Activate.ps1`
 
-6. Запустите тесты **через pytest из venv**:
+После активации в приглашении появится `(venv)`. Дальше команды ниже пишутся уже из активированного окружения.
+
+6. Установите зависимости:
 
 ```bash
-./venv/bin/pytest -v
+pip install -r requirements.txt
 ```
 
-На Windows: `venv\Scripts\pytest -v`
+7. Запустите тесты:
+
+```bash
+pytest -v
+```
 
 Дополнительная настройка не нужна: base URL стенда уже в коде.  
 Результаты Allure пишутся в `allure-results/` (в `.gitignore`).
@@ -93,10 +104,10 @@ python3 -m venv venv
 
 ```bash
 # только сценарии без известных багов
-./venv/bin/pytest -v --ignore=tests/test_bugs.py
+pytest -v --ignore=tests/test_bugs.py
 
 # один файл
-./venv/bin/pytest -v tests/test_auth.py
+pytest -v tests/test_auth.py
 ```
 
 
@@ -105,7 +116,7 @@ python3 -m venv venv
 В каждом HTTP-запросе есть Allure step и вложения `request` / `status_code` / `response_body`.  
 У тестов заданы epic/feature; у E2E - отдельные шаги сценария.
 
-1. Прогоните тесты (`./venv/bin/pytest -v`) - появится папка `allure-results/`.
+1. Прогоните тесты (`pytest -v`) - появится папка `allure-results/`.
 
 2. Установите [Allure Commandline](https://docs.qameta.io/allure/#_installing_a_commandline) (если ещё нет), например:
 
@@ -120,7 +131,7 @@ allure generate allure-results -o allure-report --clean
 allure open allure-report
 ```
 
-Пример сформированного отчёта (полный прогон: 33 passed / 16 failed - известные баги в Known bugs):
+Пример сформированного отчёта (полный прогон: 32 passed / 15 failed - известные баги в Known bugs):
 
 - [reports/allure-overview.png](reports/allure-overview.png) - Overview
 - [reports/allure-behaviors.png](reports/allure-behaviors.png) - Behaviors (epic API)
